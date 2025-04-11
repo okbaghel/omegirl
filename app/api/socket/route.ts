@@ -38,7 +38,7 @@ export async function GET(req: Request) {
         transports: ['websocket', 'polling']
       });
 
-      httpServer.io.on('connection', (socket) => {
+      httpServer.io.on('connection',(socket: Socket) => {
         console.log('User connected:', socket.id);
 
         socket.on('ready', () => {
