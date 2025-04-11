@@ -1,4 +1,4 @@
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { NextResponse } from 'next/server';
 import type { Server as HTTPServer } from 'http';
 import type { Socket as NetSocket } from 'net';
@@ -23,11 +23,11 @@ export async function GET(req: Request) {
     // @ts-ignore
     const res = new NextResponse();
     // @ts-ignore
-    const httpServer = res.socket.server;
+    const httpServer: SocketServer = res.socket.server;
 
     if (!httpServer.io) {
       console.log('Starting Socket.IO server...');
-      
+
       httpServer.io = new Server(httpServer, {
         path: '/api/socket',
         addTrailingSlash: false,
@@ -38,18 +38,16 @@ export async function GET(req: Request) {
         transports: ['websocket', 'polling']
       });
 
-      httpServer.io.on('connection',(socket: Socket) => {
+      httpServer.io.on('connection', (socket: Socket) => {
         console.log('User connected:', socket.id);
-
         socket.on('ready', () => {
           console.log('User ready:', socket.id);
-          // Remove from any existing waiting list first
           waitingUsers.delete(socket.id);
-          
-          if (waitingUsers.size > 0) {
-            const [partnerId] = waitingUsers;
+        
+          const [partnerId] = Array.from(waitingUsers);
+          if (partnerId) {
             waitingUsers.delete(partnerId);
-            
+        
             console.log('Matching users:', socket.id, 'with', partnerId);
             socket.emit('matched', { partnerId });
             httpServer.io?.to(partnerId).emit('matched', { partnerId: socket.id });
@@ -58,6 +56,7 @@ export async function GET(req: Request) {
             waitingUsers.add(socket.id);
           }
         });
+        
 
         socket.on('offer', ({ offer, to }) => {
           console.log('Relaying offer from', socket.id, 'to', to);
@@ -76,13 +75,12 @@ export async function GET(req: Request) {
 
         socket.on('next', () => {
           console.log('User requesting next:', socket.id);
-          // Remove from waiting list if they were waiting
           waitingUsers.delete(socket.id);
-          
+
           if (waitingUsers.size > 0) {
-            const [partnerId] = waitingUsers;
+            const [partnerId] = Array.from(waitingUsers);
             waitingUsers.delete(partnerId);
-            
+
             console.log('Matching users:', socket.id, 'with', partnerId);
             socket.emit('matched', { partnerId });
             httpServer.io?.to(partnerId).emit('matched', { partnerId: socket.id });
